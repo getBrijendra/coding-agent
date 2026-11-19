@@ -34,7 +34,7 @@ coding-agent = "coding_agent.cli:app"
 packages = ["src/coding_agent"]
 
 [tool.pytest.ini_options]
-addopts = "-ra --basetemp=.pytest-tmp"
+addopts = "-ra"
 testpaths = ["tests"]
 markers = ["live: optional test that makes a real model request when explicitly enabled"]
 

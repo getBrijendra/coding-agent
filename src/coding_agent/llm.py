@@ -28,6 +28,9 @@ from coding_agent.state import (
     ReviewDecision,
 )
 
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+OPENROUTER_MODEL = "cohere/north-mini-code:free"
+
 RESEARCH_TOOLS: list[dict[str, Any]] = [
     {
         "name": "list_files",
@@ -93,8 +96,14 @@ def _to_messages(messages: list[dict[str, Any]]) -> list[Any]:
 class OpenAICodingModel:
     """Thin adapter so graph tests can replace all network-facing behavior."""
 
-    def __init__(self, model_name: str) -> None:
-        self.client = ChatOpenAI(model=model_name, temperature=0, max_retries=2)
+    def __init__(self, model_name: str, api_key: str) -> None:
+        self.client = ChatOpenAI(
+            model=model_name,
+            api_key=api_key,
+            base_url=OPENROUTER_BASE_URL,
+            temperature=0,
+            max_retries=2,
+        )
 
     def research(self, messages: list[dict[str, Any]]) -> ResearchResponse:
         response = self.client.bind_tools(RESEARCH_TOOLS).invoke(_to_messages(messages))
@@ -110,27 +119,27 @@ class OpenAICodingModel:
         return {"content": content, "tool_calls": calls}
 
     def create_plan(self, payload: dict[str, Any]) -> ImplementationPlan:
-        model = self.client.with_structured_output(ImplementationPlan, method="json_schema")
+        model = self.client.with_structured_output(ImplementationPlan, method="function_calling")
         return model.invoke(
             [SystemMessage(content=PLAN_SYSTEM_PROMPT), HumanMessage(content=json.dumps(payload))]
         )
 
     def propose_patch(self, payload: dict[str, Any]) -> PatchProposal:
-        model = self.client.with_structured_output(PatchProposal, method="json_schema")
+        model = self.client.with_structured_output(PatchProposal, method="function_calling")
         return model.invoke(
             [SystemMessage(content=PATCH_SYSTEM_PROMPT), HumanMessage(content=json.dumps(payload))]
         )
 
     def review(self, payload: dict[str, Any]) -> ReviewDecision:
-        model = self.client.with_structured_output(ReviewDecision, method="json_schema")
+        model = self.client.with_structured_output(ReviewDecision, method="function_calling")
         return model.invoke(
             [SystemMessage(content=REVIEW_SYSTEM_PROMPT), HumanMessage(content=json.dumps(payload))]
         )
 
 
 def create_model(settings: Settings) -> CodingModel:
-    if not settings.model_name:
-        raise RuntimeError("CODING_AGENT_MODEL is required for live runs")
-    if not os.getenv("OPENAI_API_KEY"):
-        raise RuntimeError("OPENAI_API_KEY is required for live runs")
-    return OpenAICodingModel(settings.model_name)
+    api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENROUTER_API_KEY is required for live runs")
+    model_name = settings.model_name or OPENROUTER_MODEL
+    return OpenAICodingModel(model_name, api_key)

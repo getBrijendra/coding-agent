@@ -1,7 +1,7 @@
 # Local Coding Agent
 
 A local-first, Python-focused coding assistant built as an explicit LangGraph `StateGraph`. It
-inspects a Git repository with bounded read-only tools, asks an OpenAI model for a structured plan
+inspects a Git repository with bounded read-only tools, asks an OpenRouter model for a structured plan
 and unified diff, pauses for separate human approval of each, safely applies the exact approved
 patch, and attempts validation only in a disposable Docker container.
 
@@ -12,7 +12,7 @@ commit or push changes, or execute generated code directly on the host.
 
 - Python 3.11 or newer
 - Git on `PATH`
-- An OpenAI API key and a model that supports tool calling and structured output
+- An OpenRouter API key
 - Docker plus a locally available sandbox image for validation (optional but recommended)
 
 Install for use:
@@ -34,12 +34,13 @@ the CLI deliberately does not auto-load `.env` files because its working directo
 untrusted target repository:
 
 ```console
-set OPENAI_API_KEY=your-key
-set CODING_AGENT_MODEL=your-structured-output-model
+set OPENROUTER_API_KEY=your-key
+set CODING_AGENT_MODEL=cohere/north-mini-code:free
 ```
 
-PowerShell uses `$env:OPENAI_API_KEY = "your-key"`; POSIX shells use
-`export OPENAI_API_KEY=your-key`. The model ID is intentionally not hard-coded.
+PowerShell uses `$env:OPENROUTER_API_KEY = "your-key"`; POSIX shells use
+`export OPENROUTER_API_KEY=your-key`. `CODING_AGENT_MODEL` is optional and defaults to Cohere North
+Mini Code (free). `OPENAI_API_KEY` remains accepted as a compatibility alias for existing setups.
 
 ## CLI workflow
 
@@ -101,6 +102,45 @@ python -m pytest -q
 Then try the documented `coding-agent run` command against that directory. Do not use a valuable
 dirty repository for a first live-model smoke test.
 
+## Debug the whole flow in VS Code
+
+The checked-in `.vscode` profiles let you follow the workflow without modifying the source example.
+First select a Python interpreter in VS Code and install the development dependencies:
+
+```console
+python -m pip install -e ".[dev]"
+```
+
+Open **Run and Debug** and choose one of these profiles:
+
+- **Coding Agent: fake full flow + repair** runs the deterministic repair-loop integration test.
+  It needs no API key, model request, or Docker image, so it is the quickest way to step through
+  graph routing and repeated patch approval.
+- **Coding Agent: interactive example (new thread)** recreates `.debug/calculator_repo` as a clean
+  Git repository, prompts for a coding problem (default: add subtraction), then runs the real CLI in
+  the integrated terminal. Put `OPENROUTER_API_KEY` in the root `.env` or the
+  VS Code process environment. The launch profile deliberately loads that root developer `.env`;
+  the application itself still never discovers or loads target-repository `.env` files.
+- **Coding Agent: resume interactive thread** preserves the disposable repository and prompts for
+  the thread UUID printed by the first launch. Use it to observe SQLite restart/resume behavior.
+- **Python: debug current test file** runs whichever test file is active in the editor.
+
+A useful breakpoint sequence is:
+
+1. `graph.py` in `build_graph` to see the explicit topology.
+2. `nodes.py` in `inspect_repo`, `research_agent`, and `create_plan`.
+3. `nodes.py` in `approve_plan` and `approve_patch`; inspect the value returned by `interrupt()`.
+4. `patching.py` in `validate_patch` and `apply_validated_patch`.
+5. `sandbox.py` in `DockerSandbox.run` and `_run_command`.
+6. `nodes.py` in `review_result` and `finish` to see repair routing and the final status.
+
+Type exactly `approve` or `reject` at each interactive prompt. Inspect the evolving target under
+`.debug/calculator_repo` and checkpoints under `.debug/agent-data`. The new-thread launch deletes
+and rebuilds only the disposable calculator target; the resume launch never resets it. You can also
+run **Tasks: Run Task → Debug: reset example repository**, **Quality: pytest**, or **Quality: Ruff**.
+If the configured Docker image is absent, stopping at the sandbox node and observing `not_run` is the
+expected fail-closed path.
+
 ## Safety contract
 
 - Reads reject absolute paths, traversal, out-of-root symlinks, binary/oversized files, Git internals,
@@ -111,6 +151,8 @@ dirty repository for a first live-model smoke test.
   stored context.
 - Diff policy rejects binary patches, path mismatches, renames/copies, mode changes, symlinks,
   protected paths, files outside the approved plan, oversized patches, and too many files.
+- A read-only `git apply --check` rejects malformed or non-applicable model patches before they are
+  shown for approval; proposal generation gets one bounded retry with the exact failure reason.
 - File hashes captured with the preview must still match immediately before `git apply --check` and
   `git apply`; otherwise the patch is stale and no write occurs.
 - Existing working-tree changes are surfaced and preserved. The tool never resets, cleans, commits,

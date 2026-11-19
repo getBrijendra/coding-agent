@@ -1,0 +1,90 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Coding Agent: fake full flow + repair",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "-s",
+        "-vv",
+        "--basetemp=${workspaceFolder}/.debug/pytest-fake-flow",
+        "tests/test_graph.py::test_failed_validation_gets_separately_approved_repair"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Coding Agent: interactive example (new thread)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "coding_agent.cli",
+      "args": [
+        "run",
+        "--repo",
+        "${workspaceFolder}/.debug/calculator_repo",
+        "--task",
+        "${input:codingAgentTask}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "CODING_AGENT_DATA_DIR": "${workspaceFolder}/.debug/agent-data"
+      },
+      "preLaunchTask": "Debug: reset example repository",
+      "justMyCode": true
+    },
+    {
+      "name": "Coding Agent: resume interactive thread",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "coding_agent.cli",
+      "args": [
+        "resume",
+        "--repo",
+        "${workspaceFolder}/.debug/calculator_repo",
+        "--thread-id",
+        "${input:codingAgentThreadId}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "CODING_AGENT_DATA_DIR": "${workspaceFolder}/.debug/agent-data"
+      },
+      "preLaunchTask": "Debug: prepare example repository",
+      "justMyCode": true
+    },
+    {
+      "name": "Python: debug current test file",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "-s",
+        "-vv",
+        "--basetemp=${workspaceFolder}/.debug/pytest-current-file",
+        "${file}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ],
+  "inputs": [
+    {
+      "id": "codingAgentTask",
+      "type": "promptString",
+      "description": "Problem for the coding agent to solve in the disposable calculator repository",
+      "default": "Add a subtract(left, right) function to src/calculator.py and add focused tests."
+    },
+    {
+      "id": "codingAgentThreadId",
+      "type": "promptString",
+      "description": "Thread UUID printed by the interrupted coding-agent run"
+    }
+  ]
+}

@@ -30,7 +30,7 @@ console = Console()
 
 
 def _redact(text: str) -> str:
-    for name in ("OPENAI_API_KEY", "LANGSMITH_API_KEY"):
+    for name in ("OPENROUTER_API_KEY", "OPENAI_API_KEY", "LANGSMITH_API_KEY"):
         secret = os.getenv(name)
         if secret:
             text = text.replace(secret, "[REDACTED]")

@@ -38,6 +38,23 @@ def test_stale_patch_does_not_overwrite_workspace(repo_factory, settings, valid_
     assert (repository.root / "hello.py").read_text(encoding="utf-8") == "user edit\n"
 
 
+def test_corrupt_hunk_is_rejected_before_approval(repo_factory, settings) -> None:
+    root = repo_factory()
+    repository = Repository.open(root, settings)
+    corrupt_patch = """diff --git a/hello.py b/hello.py
+--- a/hello.py
++++ b/hello.py
+@@ -1,11 +1,20 @@
+-old
++new
+"""
+
+    with pytest.raises(PatchError, match=r"git apply check failed.*corrupt patch"):
+        validate_patch(repository, corrupt_patch, ["hello.py"])
+
+    assert (root / "hello.py").read_text(encoding="utf-8") == "old\n"
+
+
 def test_double_application_is_rejected(repo_factory, settings, valid_patch) -> None:
     repository = Repository.open(repo_factory(), settings)
     validated = validate_patch(repository, valid_patch, ["hello.py"])

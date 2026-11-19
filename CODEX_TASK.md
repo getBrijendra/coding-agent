@@ -311,6 +311,16 @@ At completion, give the user:
   sandbox output, or provider errors enter checkpoint state.
 - **2026-11-18:** Do not auto-load `.env` from the current directory because the CLI may be launched
   inside an untrusted target repository; live configuration comes only from the process environment.
+- **2026-11-19:** VS Code live debugging uses an ignored, disposable `.debug/calculator_repo` Git
+  copy. New-thread launches reset it; resume launches preserve it and reuse the SQLite data directory.
+- **2026-11-19:** Use the ignored root `.venv` as the default VS Code interpreter for local
+  development and debugging.
+- **2026-11-19:** Route live model calls through OpenRouter's OpenAI-compatible endpoint, defaulting
+  to `cohere/north-mini-code:free`. Use function-calling structured output because this model
+  supports tools but not the `response_format` API.
+- **2026-11-19:** Run a read-only `git apply --check` during proposal validation, before the patch
+  approval interrupt. Malformed or non-applicable model output is returned to the existing bounded
+  proposal retry instead of asking the user to approve a patch that cannot be applied.
 
 ## 13. Validation evidence (populate during implementation)
 
@@ -334,6 +344,27 @@ At completion, give the user:
   and timeout tests rather than claimed as a live sandbox pass.
 - **2026-11-18 — live model:** not run because this implementation session did not use user API
   credentials. `tests/test_live_smoke.py` is opt-in via `CODING_AGENT_LIVE_SMOKE=1`.
+- **2026-11-19 — VS Code debug setup:** all four `.vscode` JSON files parsed successfully;
+  `python scripts/prepare_debug_repo.py --reset` created a clean disposable Git working tree.
+- **2026-11-19 — post-debug-config validation:** `python -m ruff check .` passed; the full offline
+  suite passed with 41 tests and 1 optional live-model skip; the exact fake repair-flow target passed
+  independently. Pytest validation used a one-time ignored `.debug` base directory in this tool
+  environment to avoid a Windows ACL left by two accidentally concurrent validation processes.
+- **2026-11-19 — root virtual environment:** `python -m venv .venv` succeeded with Python 3.14;
+  `.venv/Scripts/python -m pip install -e ".[dev]"` installed all runtime and development
+  dependencies plus the editable CLI package.
+
+- **2026-11-19 — OpenRouter client update:** the offline suite passed with 43 tests and 1 optional
+  live-model skip in 25.85 seconds using an isolated pytest temp directory; `python -m ruff check .`
+  passed. The live request was not run, so provider credentials were not used.
+- **2026-11-19 — pre-approval patch preflight regression:** the targeted patch/graph suite passed
+  with 22 tests. The full offline suite passed with 45 tests and 1 optional live-model skip in
+  26.35 seconds; `python -m ruff check .` passed. Tests cover rejection of the observed corrupt hunk
+  before approval and a corrected second proposal reaching the approval interrupt without writes.
+- **2026-11-19 — LangGraph architecture documentation:** expanded `docs/architecture.md` with the
+  implemented graph topology, routing table, node/state contracts, interrupt/resume sequence,
+  exact-patch invariant, repair loop, trust boundaries, and terminal semantics. All three local
+  source links resolved and `git diff --check -- docs/architecture.md` passed.
 
 ## 14. Relevant official references
 

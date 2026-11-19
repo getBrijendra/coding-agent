@@ -146,6 +146,7 @@ def validate_patch(
         hashes = repository.file_hashes(list(paths))
     except RepositoryError as exc:
         raise PatchError(str(exc)) from exc
+    _check_patch_applies(repository, patch)
     return ValidatedPatch(
         text=patch,
         paths=paths,
@@ -164,6 +165,19 @@ def _git_apply(repository: Repository, patch_path: Path, *, check: bool) -> None
         detail = (result.stderr or result.stdout).strip()
         action = "check" if check else "application"
         raise PatchError(f"git apply {action} failed: {detail[:2_000]}")
+
+
+def _check_patch_applies(repository: Repository, patch: str) -> None:
+    """Reject malformed or non-applicable patches before they can be approved."""
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".patch", encoding="utf-8", newline="\n", delete=False
+    ) as handle:
+        handle.write(patch)
+        patch_path = Path(handle.name)
+    try:
+        _git_apply(repository, patch_path, check=True)
+    finally:
+        patch_path.unlink(missing_ok=True)
 
 
 def apply_validated_patch(

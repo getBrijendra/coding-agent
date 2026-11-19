@@ -50,7 +50,7 @@ def scrub_text(text: str) -> str:
     """Remove common credential forms and any configured process secrets from model/log text."""
 
     scrubbed = text
-    for variable in ("OPENAI_API_KEY", "LANGSMITH_API_KEY"):
+    for variable in ("OPENROUTER_API_KEY", "OPENAI_API_KEY", "LANGSMITH_API_KEY"):
         value = os.getenv(variable)
         if value:
             scrubbed = scrubbed.replace(value, "[REDACTED]")
